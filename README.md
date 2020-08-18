@@ -22,4 +22,4 @@ Double click a variable to edit its value (and the bits beneath).
 
 ## What's behind?
 
-[[https://zimjs.com/index.html][ZIM JavaScript Canvas Framework]]
+[ZIM JavaScript Canvas Framework](https://zimjs.com/index.html)
