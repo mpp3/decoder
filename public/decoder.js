@@ -318,9 +318,10 @@ frame.on("ready", () => {
     for (let i = 0; i < memsize; i++) {
         let memCellContents = randomByteString();
         let label = new Label({
+            color: green,
             text: memCellContents,
             font: "courier",
-            backing: new Rectangle(cellWidth, cellHeight, orange).centerReg(),
+            backing: new Rectangle(cellWidth, cellHeight, black).centerReg(),
             align: "right",
             valign: "middle"
         }).centerReg().cur("text");
