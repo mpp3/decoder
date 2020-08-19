@@ -162,13 +162,16 @@ function decode(memory, pos, type) {
 }
 
 class Variable {
-    constructor(stage, mem, memTile, memLabels, name, type) {
+    constructor(variables, stage, mem, memTile, memLabels, name, type, address) {
+        this.variables = variables;
+        this.variables = variables;
         this.stage = stage;
         this.mem = mem;
         this.memTile = memTile;
         this.memLabels = memLabels;
         this.name = name;
         this.type = type;
+        this.address = address;
         this.box = new Rectangle({
             color: "rgba(127,127,127,0.3)",
             width: varWidth,
@@ -207,6 +210,7 @@ class Variable {
                 this.box.y = this.memLabels[nearest].y;
                 // decode(nearest, sizeOf(this.type), this.mem, this.memLabels);
                 this.bind(nearest);
+                this.address = nearest;
             }
             this.stage.update();
         });
@@ -242,7 +246,7 @@ class Variable {
         this.stage.update();
     }
     destroy() {
-        // encodeAll(this.mem, this.memLabels);
+        delete this.variables[this.name];
         this.box.removeFrom(this.memTile);
         this.stage.update();
     }
@@ -315,6 +319,9 @@ frame.on("ready", () => {
 
     var memoryLabels = [];
 
+    var variables = {};
+    var varnum = 0;
+
     for (let i = 0; i < memsize; i++) {
         let memCellContents = randomByteString();
         let label = new Label({
@@ -354,7 +361,12 @@ frame.on("ready", () => {
             backgroundColor: "rgb(127,127,127)",
             rollBackgroundColor: light
         }).centerReg();
-        b.on("click", () => { new Variable(stage, memory, memoryTile, memoryLabels, "name", type) });
+        b.on("click", () => {
+            varnum++;
+            let varname = `var${varnum}`;
+            let variable = new Variable(variables, stage, memory, memoryTile, memoryLabels, `var${varnum}`, type, null);
+            variables[varname] = variable;
+        });
         varButtons.push(b);
     }
     new Tile({
@@ -364,18 +376,25 @@ frame.on("ready", () => {
         spacingV: 5
     }).addTo().loc(cellHeight, cellHeight);
 
-    var sink = new Circle(50, light).centerReg(stage).mov(-700,380).alp(1).cur("pointer");
+    var sink = new Circle(50, light).centerReg(stage).mov(-700, 380).alp(1).cur("pointer");
     var particles = new Emitter({
         obj: new Circle(5, red),
         // life: 3,
         sink: sink,
         gravity: 0,
         force: 2.5
-    }).centerReg(stage).mov(-700,380).sca(2);
+    }).centerReg(stage).mov(-700, 380).sca(2);
     sink.on("click", () => {
         for (let i = 0; i < memory.length; i++) {
             let value = randomByteString();
             memory[i] = memoryLabels[i].text = value;
+            for (const v in variables) {
+                let variable = variables[v];
+                if (variable.address != null) {
+                    variable.valueButton.text = decode(variable.mem, variable.address, variable.type);
+                    variable.stage.update();
+                }
+            }
         }
     });
 
