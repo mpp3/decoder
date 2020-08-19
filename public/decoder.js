@@ -18,7 +18,6 @@ function binaryToFloat(binary) {
         let sign = (binary[0] == "0") ? 1 : -1;
         let expBits = binary.substring(1, 9);
         let manBits = binary.substring(9, 32);
-        console.log(`expb: ${expBits} manb: ${manBits}`);
         let mantisa = 1;
         for (let i = 0; i < 23; i++) {
             mantisa += parseInt(manBits[i]) * Math.pow(2, -(i + 1));
@@ -29,7 +28,6 @@ function binaryToFloat(binary) {
         }
         let expAdjusted = exponent - 127
         let result = sign * mantisa * Math.pow(2, expAdjusted);
-        console.log(`sign: ${sign} exp: ${expAdjusted} mant: ${mantisa}`);
         return result.toPrecision(4).toString();
     }
 }
@@ -43,7 +41,6 @@ function binaryToDouble(binary) {
         let sign = (binary[0] == "0") ? 1 : -1;
         let expBits = binary.substring(1, 12);
         let manBits = binary.substring(12, 64);
-        console.log(`expb: ${expBits} manb: ${manBits}`);
         let mantisa = 1;
         for (let i = 0; i < 52; i++) {
             mantisa += parseInt(manBits[i]) * Math.pow(2, -(i + 1));
@@ -54,7 +51,6 @@ function binaryToDouble(binary) {
         }
         let expAdjusted = exponent - 1023
         let result = sign * mantisa * Math.pow(2, expAdjusted);
-        console.log(`sign: ${sign} exp: ${expAdjusted} mant: ${mantisa}`);
         return result.toPrecision(4).toString();
     }
 }
@@ -88,6 +84,40 @@ function nearestCell(origin, memoryLabels) {
         if (dist < minDistance) {
             minDistance = dist;
             closestCell = i;
+        }
+    }
+    return closestCell;
+}
+
+function fits(mem, address, size) {
+    for (let i = 0; i < size; i++) {
+        if (!mem[address + i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function fitsInMemory(mem, size) {
+    for (let i = 0; i < Object.keys(mem).length; i++) {
+        if (fits(mem, i, size)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function nearestFreeCell(origin, memoryLabels, freeMemory, size) {
+    let minDistance = Infinity;
+    let closestCell = null;
+    for (let i = 0; i < memoryLabels.length; i++) {
+        if (fits(freeMemory, i, size)) {
+            let label = memoryLabels[i];
+            let dist = distance(origin, { x: label.x, y: label.y });
+            if (dist < minDistance) {
+                minDistance = dist;
+                closestCell = i;
+            }
         }
     }
     return closestCell;
@@ -162,11 +192,12 @@ function decode(memory, pos, type) {
 }
 
 class Variable {
-    constructor(variables, stage, mem, memTile, memLabels, name, type, address) {
+    constructor(variables, stage, mem, freeMemory, memTile, memLabels, name, type, address) {
         this.variables = variables;
         this.variables = variables;
         this.stage = stage;
         this.mem = mem;
+        this.freeMemory = freeMemory;
         this.memTile = memTile;
         this.memLabels = memLabels;
         this.name = name;
@@ -203,7 +234,7 @@ class Variable {
         }).addTo(this.box).center();
         this.box.mouseChildren = true;
         this.pressupListener = this.box.on("pressup", (event) => {
-            let nearest = nearestCell(this.box, this.memLabels);
+            let nearest = nearestFreeCell(this.box, this.memLabels, this.freeMemory, sizeOf(this.type));
             let distX = distanceX(this.box, this.memLabels[nearest]);
             if (distX < this.memLabels[nearest].width * 0.5) {
                 this.box.x = this.memLabels[nearest].x;
@@ -211,6 +242,9 @@ class Variable {
                 // decode(nearest, sizeOf(this.type), this.mem, this.memLabels);
                 this.bind(nearest);
                 this.address = nearest;
+                for (let i = 0; i < sizeOf(this.type); i++) {
+                    this.freeMemory[this.address + i] = false;
+                }
             }
             this.stage.update();
         });
@@ -231,6 +265,12 @@ class Variable {
         });
 
         this.box.on("mousedown", () => {
+            if (this.address != null) {
+                for (let i = 0; i < sizeOf(this.type); i++) {
+                    this.freeMemory[this.address + i] = true;
+                }
+                this.address = null;
+            }
             this.stage.update();
         });
 
@@ -318,9 +358,15 @@ frame.on("ready", () => {
     var memory = [];
 
     var memoryLabels = [];
+    var freeMemory = {};
 
     var variables = {};
     var varnum = 0;
+
+    var genTip = new Tip({
+        text: "",
+        backgroundColor: red
+    }).addTo().hide();
 
     for (let i = 0; i < memsize; i++) {
         let memCellContents = randomByteString();
@@ -334,6 +380,7 @@ frame.on("ready", () => {
         }).centerReg().cur("text");
         label.on("click", () => { editLabel(stage, label, memory, i, editTip); });
         memoryLabels.push(label);
+        freeMemory[i] = true;
         memory.push(memCellContents);
     }
 
@@ -348,9 +395,6 @@ frame.on("ready", () => {
         text: "hola",
         backgroundColor: red
     }).addTo().loc(frame.mouseX, frame.mouseY).hide();
-    frame.on("mousemove", () => {
-        console.log(frame.mouseX, frame.mouseY);
-    });
 
     var varButtons = [];
     for (let type in types) {
@@ -362,10 +406,16 @@ frame.on("ready", () => {
             rollBackgroundColor: light
         }).centerReg();
         b.on("click", () => {
-            varnum++;
-            let varname = `var${varnum}`;
-            let variable = new Variable(variables, stage, memory, memoryTile, memoryLabels, `var${varnum}`, type, null);
-            variables[varname] = variable;
+            if (fitsInMemory(freeMemory, sizeOf(type))) {
+                varnum++;
+                let varname = `var${varnum}`;
+                let variable = new Variable(variables, stage, memory, freeMemory, memoryTile, memoryLabels, `var${varnum}`, type, null);
+                variables[varname] = variable;
+            }
+            else {
+                genTip.text = `Sorry, not enough free memory for a ${type}.`;
+                genTip.show();
+            }
         });
         varButtons.push(b);
     }
