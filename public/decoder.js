@@ -1,3 +1,16 @@
+const firebaseConfig = {
+  apiKey: "AIzaSyCQtAuyOovzubyLUP7K8CrfP5Yj2OjdfO8",
+  authDomain: "decoder-3e9ea.firebaseapp.com",
+  databaseURL: "https://decoder-3e9ea.firebaseio.com",
+  projectId: "decoder-3e9ea",
+  storageBucket: "decoder-3e9ea.appspot.com",
+  messagingSenderId: "643696649719",
+  appId: "1:643696649719:web:198f869ad13873254b3af2",
+  measurementId: "G-EX3SQR1P22"
+};
+
+firebase.analytics();
+
 const cellWidth = 220;
 const cellHeight = 50;
 const varHeight = 60;
@@ -383,6 +396,7 @@ frame.on("ready", () => {
         freeMemory[i] = true;
         memory.push(memCellContents);
     }
+
 
     var memoryTile = new Tile({
         obj: memoryLabels,
